@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title>一个选择记忆游戏</title>
+		<style type="text/css">
+			*{
+				margin: 0;
+				padding: 0;
+			}
+			.container{
+				position: relative;
+				background: #333333;
+				width: 640px;
+				height: 640px;
+				margin: 30px auto;
+				overflow: hidden;
+				border-radius: 50%;
+				border: 40px solid #333333;
+			}
+			.part{
+				width: 300px;
+				height: 300px;
+				position: absolute;
+				text-indent: -999999em;
+				filter: grayscale(50%);
+				-webkit-filter: grayscale(50%);
+			}
+			.control{
+				position: absolute;
+				box-sizing: border-box;
+				border: 20px solid #333333;
+				width: 320px;
+				height: 320px;
+				left: 0;
+				top: 0;
+				bottom: 0;
+				right: 0;
+				margin: auto auto;
+				background: white;
+				border-radius: 50%;
+				overflow: hidden;
+				text-align: center;
+			}
+			.prompt{
+				margin-top: 10px;
+				font-size: 12px;
+			}
+			.point{
+				width: 30px;
+				height: 30px;
+				border-radius: 50%;
+				box-sizing: border-box;
+				border: 3px solid #22AADD;
+				box-shadow: 0 1px 1px 1px #000088;
+				margin: 0 auto;
+				cursor: pointer;
+				position: relative;
+			}
+			.promptA{
+				display: inline-block;
+				width: 30px;
+				height: 30px;
+				box-sizing: border-box;
+				border: 3px solid #333333;
+			}
+			.switchPrompt{
+				font-size: 12px;
+				display: inline-block;
+				line-height: 30px;
+				vertical-align: top;
+				padding: 0 10px;
+			}
+			.flash{
+				animation: flash 1s step-end forwards;
+				-webkit-animation: flash 1s step-end forwards;
+			}
+			.active{
+				animation: showColor 1s step-end;
+				-webkit-animation: showColor 1s step-end;
+			}
+			@keyframes flash{
+				0%{
+					font-size: 30px;
+				}
+				25%{
+					font-size: 0;
+				}
+				50%{
+					font-size: 30px;
+				}
+				75%{
+					font-size: 0px;
+				}
+			}
+			@-webkit-keyframes flash{
+				0%{
+					font-size: 30px;
+				}
+				25%{
+					font-size: 0;
+				}
+				50%{
+					font-size: 30px;
+				}
+				75%{
+					font-size: 0px;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<div class="container">
+			<div class="part" style="top: 0px;left: 0px;background: gold;" data-num = "0">
+				0
+			</div>
+			<div class="part" style="top: 0px;right: 0px;background: blue;" data-num = "1">
+				1
+			</div>
+			<div class="part" style="bottom: 0px;right: 0px;background: red;" data-num = "2">				
+				2
+			</div>
+			<div class="part" style="bottom: 0px;left: 0px;background: greenyellow;" data-num = "3">
+				3
+			</div>
+			<div class="control">
+				<p class="title" style="font-weight: bolder;font-size: 50px;margin-top: 60px;">控制台</p>
+				<div class="show" style="overflow: hidden;padding: 20px 25px;">
+					<div class="num" style="width: 40%;padding: 0 15px;float: left;box-sizing: border-box;">
+						<p class="numPrompt" style="font-weight: bolder;line-height: 30px;background: goldenrod;border-radius: 5px;font-size: 30px;color: brown;">--</p>
+						<p class="prompt">COIUNT</p>
+					</div>
+					
+					<div class="start" style="width: 30%;padding: 0 15px;float: left;box-sizing: border-box;">
+						<p class="point start" style="background: gold;"></p>
+						<p class="prompt">START</p>
+					</div>
+					<div class="strict" style="width: 30%;padding: 0 15px;float: left;box-sizing: border-box;position: relative;">
+						<p class="pointPrompt" style="width: 10px;height: 10px;border-radius: 50%;background: gold;position: absolute;top: -15px;left: 0;right: 0;margin: 0 auto;"></p>
+						<p class="point strcit" style="background: darkmagenta;"></p>
+						<p class="prompt">STRICT</p>
+					</div>
+				</div>
+				<div class="switch" style="font-size: 0;">
+					<span class="switchPrompt">OFF</span><a href="javascript:;" class="off promptA" style="background: blue;"></a>
+					<a href="javascropt:;" class="on promptA" style="background: #333333;"></a><span class="switchPrompt">ON</span>
+				</div>
+			</div>
+		</div>
+	</body>
+	<script type="text/javascript">
+		var con=false;//开关键是否打开，默认否
+		var strict=false;//严格模式是否开启，默认否
+		var start=false;//是否开始，默认否
+		var arr=[];//步骤数
+		var loop=undefined;
+		//var partDomClick=false;
+		var canSelect=false;//表示颜色展示完毕
+		var selectCon=true;//是否有选择色块，或者选择错误
+		var selectStep=0;//选取颜色的步骤数
+		var secondSelect=false;//2秒钟之内是否选择了色块
+		var offDom=document.getElementsByClassName("off")[0];
+		var onDom=document.getElementsByClassName("on")[0];
+		var numPromptDom=document.getElementsByClassName("numPrompt")[0];
+		var strictDom=document.getElementsByClassName("strcit")[0];
+		var startDom=document.getElementsByClassName("start")[0];
+		var pointDom=document.getElementsByClassName("point");
+		var pointPromptDom=document.getElementsByClassName("pointPrompt")[0];
+		var partDom=document.getElementsByClassName("part");
+		
+		//音频相关函数
+		var AudioContext=AudioContext||webkitAudioContext;
+		var context=new AudioContext;
+		var oscillator=context.createOscillator();
+		oscillator.frequency.value=440;//震盪的頻率，在音樂裡面也稱作「音高」( 可以參考維基百科 )，頻率越高聲音就越高，基本預設的聲音頻率座落在 440 赫茲，因為任何樂器演奏中央 C 上的 A 音符基頻皆為 440 赫茲。
+		oscillator.detune.value=440;//音高偏移微調，將原音的音分做些微移調，造成重疊的音色效果，也就是雖然是同一個音，但經過 detune 偏移，就變成了不同的聲音。( 音分可以參考維基百科 )  
+		gainNode = context.createGain();  // 創建 gainNode,用处是改变声音的一些信息，这里是改变了音量大小，其实不使用gainNode,音频二也能播放
+		oscillator.connect(gainNode);
+		oscillator.start(0);
+		//oscillator.stop(0.2);
+		
+		
+		function modeVoice(para1){//音频相关函数，需要参数1:播放类型type，2：振荡频率frequency,3:音高偏移微調detune;音量大小:volume
+			oscillator.type=para1;//type選擇震盪的波形，波形共有五種 type，分別是 sine ( 正弦波 )、square ( 方波 )、sawtooth ( 鋸齒波 )、triangle ( 三角波 ) 和 custom ( 自訂 )，每種波形在同樣的頻率下，會產生不同的聲音。
+			gainNode.connect(context.destination);
+			setTimeout(function(){
+				gainNode.disconnect(context.destination);
+			},200)
+		}
+	
+		offDom.addEventListener("click",function(){
+			if(loop!==undefined){//保证setInterval不会越来越多
+				loop=clearInterval(loop);//clearInterval的返回值是undefined，这里的loop只起到指针的作用，指向最近的setInterval
+			}
+			arr=[];//步骤数重置
+			con=false;
+			onDom.style.background="#333333";
+			this.style.background="blue";
+			numPromptDom.style.color="brown";
+			numPromptDom.className="numPrompt";
+			strict=false;
+			start=false;
+			pointPromptDom.style.background="gold";
+			numPromptDom.innerHTML="--";
+			Array.prototype.forEach.call(partDom,function(e){
+				e.style.cursor="default";
+			});
+		})
+		onDom.addEventListener("click",function(){
+			con=true;
+			if(!start){
+				offDom.style.background="#333333";
+				this.style.background="blue";
+				numPromptDom.style.color="red";	
+			}
+		})
+		Array.prototype.forEach.call(pointDom,function(e){//
+			e.addEventListener("mousedown",function(){
+				this.style.boxShadow="none";
+				this.style.transform="translateY(1px)";//相对于最初始的状态，而不是这一步之前的状态
+			})
+			e.addEventListener("mouseup",function(){
+				this.style.boxShadow="0 1px 1px 1px #000088";
+				this.style.transform="translateY(0)";
+			})
+		})
+		startDom.addEventListener("click",function(){//每次点击的时候，步骤数重置
+			if(con){//如果开关键已经打开
+				console.log(loop)
+				if(loop!==undefined){//保证setInterval不会越来越多
+					loop=clearInterval(loop);//clearInterval的返回值是undefined，这里的loop只起到指针的作用，指向最近的setInterval
+				}
+				arr=[];//步骤数重置
+				var step=1;
+				start=true;
+				var k=Math.random()*4|0;
+				arr.push(k);
+				numPromptDom.style.color="#333333";
+				numPromptDom.className="numPrompt";
+				numPromptDom.className="numPrompt flash";
+				numPromptDom.innerHTML="--";
+				Array.prototype.forEach.call(partDom,function(e){
+					e.style.cursor="pointer";
+				});
+				setTimeout(function(){
+					numPromptDom.className="numPrompt";
+					numPromptDom.innerHTML=addSero(step);
+				},1000);
+				if(loop==undefined){
+					loop=setInterval(function(){//不应该用循环了
+						showColor(step);
+						step+=1;
+						//console.log("jejej")
+					},1000)
+				}
+			}
+		})
+		
+		strictDom.addEventListener("click",function(){
+			if(con){
+				if(strict){
+					pointPromptDom.style.background="gold";
+					strict=false;
+				}else{
+					pointPromptDom.style.background="green";
+					strict=true;
+				}
+			}
+		})
+		
+		
+		Array.prototype.forEach.call(partDom,function(e){
+			e.addEventListener("click",function(){//色块选择之后，变为true
+				if(canSelect&&con){//色块展示完毕之后
+					var currentStep=selectStep;//当前的步骤数
+					secondSelect=true;
+					console.log(arr);
+					console.log(e.dataset.num)
+					console.log(selectStep+"||"+e.dataset.num)
+					
+					e.style.filter="grayscale(0%)";//变色
+					e.style.webkitFilter="grayscale(0%)";//变色
+					setTimeout(function(){
+						e.style.filter="grayscale(50%)";
+						e.style.webkitFilter="grayscale(50%)";
+					},500)
+					
+					if(e.dataset.num!=arr[selectStep]&&strict){//严格模式下选择色块错误
+						console.log("wrong+strict");
+						modeVoice("sawtooth");//发出报警声
+						numPromptDom.innerHTML="!!";
+						selectStep=0;//重置步骤数
+						setTimeout(function(){
+							//重新开始
+							if(loop!==undefined){//保证setInterval不会越来越多
+								loop=clearInterval(loop);//clearInterval的返回值是undefined，这里的loop只起到指针的作用，指向最近的setInterval
+							}
+							arr=[];//步骤数重置
+							var step=1;
+							start=true;
+							var k=Math.random()*4|0;
+							arr.push(k);
+							numPromptDom.innerHTML=addSero(step);
+							if(loop==undefined){
+								loop=setInterval(function(){//不应该用循环了
+									showColor(step);
+									step+=1;
+									//console.log("jejej")
+								},1000)
+							}
+						},1000);
+						//发出报警声
+					}else if(e.dataset.num!=arr[selectStep]){//普通模式下选择错误
+						console.log("wrong");
+						modeVoice("sawtooth");//发出报警声
+						selectStep=0;//重置步骤数
+						//重新开始循环颜色
+						setTimeout(function(){
+							//重新开始
+							if(loop!==undefined){//保证setInterval不会越来越多
+								loop=clearInterval(loop);//clearInterval的返回值是undefined，这里的loop只起到指针的作用，指向最近的setInterval
+							}
+							var step=1;
+							start=true;
+							if(loop==undefined){
+								loop=setInterval(function(){//不应该用循环了
+									showColor(step);
+									step+=1;
+									//console.log("jejej")
+								},1000)
+							}
+						},1000);
+					}else{//选择正确的话
+						modeVoice("sine");//发出声响
+						if(selectStep<arr.length-1){//表示必须进行下一步选择
+//							setTimeout(function(){
+//								if(currentStep<selectStep){//表示没有进行下一步（步骤数没变）
+//									if(strict){//严格模式
+//										console.log("wrong+strict");
+//										//发出报警声
+//									}else{
+//										console.log("wrong");
+//										//发出报警声
+//									}
+//								}
+//							},2000);
+							selectStep+=1;
+						}else{//表示已经选择完毕
+							if(arr.length==20){//到达20个，提示赢
+								console.log("you win")
+								con=false;
+								numPromptDom.innerHTML="WIN";
+								return;
+							}else{//小于20个的话，数组加1
+								var k=Math.random()*4|0;
+								var stepClick=1;
+								selectStep=0;//重置步骤数
+								arr.push(k);
+								if(loop==undefined){
+									loop=setInterval(function(){//不应该用循环了
+										showColor(stepClick);
+										if(loop!==undefined){//等于undefined的时候，表示颜色展示完毕
+											stepClick+=1;
+										}
+										console.log("jejej")
+									},1000)
+									setTimeout(function(){
+										numPromptDom.innerHTML=addSero(arr.length);
+									},1000)
+								}
+							}
+						}
+					}
+					
+				}
+			})
+		})
+		
+		
+		function addSero(a){//小于10的数补零
+			if(a<10){
+				return "0"+a;
+			}
+		}
+		
+		function showColor(step){//展示颜色函数
+//			var step=1;
+			canSelect=false;
+			for(var j=0;j<4;j++){
+				if(arr[step-1]==partDom[j].dataset.num){//数字和box对应
+					partDom[j].style.filter="grayscale(0%)";
+					partDom[j].style.webkitFilter="grayscale(0%)";
+					//发出声音函数
+					setTimeout(function(){//标记为setTimeout_1，click之后的所有代码运行完毕之后才运行
+						partDom[j].style.filter="grayscale(50%)";
+						partDom[j].style.webkitFilter="grayscale(50%)";
+						console.log(step+"||"+arr.length);
+						if(step>=arr.length){//说明颜色展示完毕
+							canSelect=true;
+							setTimeout(function(){//过两秒钟之后，检测是否进行了色块选择
+								if(!secondSelect&&strict){//2秒钟之内没有选取色块的话报错，选择的话，则不做任何动作（严格模式）
+									console.log("wrong+strict");
+									//发出报警声
+								}else if(!secondSelect){
+									console.log("wrong");
+									//发出报警声
+								}
+							},2000)
+							loop=clearInterval(loop);//停止执行
+						}
+					},500)
+					break;
+				}
+			}
+		}
+	</script>
+</html>
